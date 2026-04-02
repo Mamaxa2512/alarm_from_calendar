@@ -13,6 +13,10 @@ const requiredEnv = [
 
 const worked = new Set();
 
+function buildDedupKey(eventId, timestamp) {
+    return (eventId || "no_id") + "_" + timestamp;
+}
+
 function createAuthClient() {
     const oauth2Client = new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
@@ -26,6 +30,8 @@ function createAuthClient() {
 }
 
 function normalizeEventsStart(event){
+    if (!event) return null;
+
     const raw = event.start?.dateTime || event.start?.date;
 
     if(!raw) return null;
@@ -42,30 +48,38 @@ function normalizeEventsStart(event){
     };
 }
 
+function isEventInWindow(timestamp, now, intervalMs = 60_000) {
+    return now <= timestamp && timestamp <= now + intervalMs;
+}
+
 function playSound() {
     const soundPath = path.join(__dirname, "sounds", "Skillet_Monster.mp3");
     if (!fs.existsSync(soundPath)) {
-        console.error("No such sounds exist");
+        console.warn("[WARN] No such sounds exist");
         return;
     }
     player.play(soundPath, (err) =>{
         if (err) {
-            console.error("cannot play Skillet_Monster: ", err.message);
+            console.error("[ERROR] Cannot play Skillet_Monster: ", err.message);
         }
     });
 }
 
 function alarm(event){
-    console.log(`Alarm: ${event.summary}, ${event.start?.dateTime || event.start?.date}`);
+    console.log(`[INFO] Alarm: ${event.summary}, ${event.start?.dateTime || event.start?.date}, ${event.id}`);
     playSound();
 }
 
-async function checkEvents(calendar){
+async function checkEvents(calendar, deps = {}){
+    const triggerAlarm = deps.alarm || alarm;
+    const workedSet = deps.worked || worked;
+    const nowValue = deps.now ?? Date.now();
 
     const response = await calendar.events.list(
         {
             calendarId: process.env.CALENDAR_ID,
-            timeMin: new Date().toISOString(),
+            timeMin: new Date(nowValue).toISOString(),
+            timeMax: new Date(nowValue + 3_600_000).toISOString(),  // check events for the next hour
             maxResults: 20,
             singleEvents: true,
             orderBy: "startTime",
@@ -73,43 +87,69 @@ async function checkEvents(calendar){
     )
     const events = response.data.items || [];
 
-    console.log("events in checkEvents:", events.length);
+    console.log("[INFO] Events in checkEvents:", events.length);
 
 
-    const now = Date.now();
+    const now = nowValue;
     const interval = 60_000;
     for(const event of events){
         const normalized = normalizeEventsStart(event);
+        const dedupKey = normalized ? buildDedupKey(event.id, normalized.timestamp) : null;
 
-        if(normalized && now <= normalized.timestamp && normalized.timestamp <= now + interval && !worked.has((event.id || "no_id") + "_" + normalized.timestamp)) {
-            alarm(event);
-            worked.add((event.id || "no_id") + "_" + normalized.timestamp);
+        if(normalized &&
+            isEventInWindow(normalized.timestamp, now, interval) &&
+            !workedSet.has(dedupKey)) { // if there are multiple events in the same minute, we will only alarm for the first one
+            triggerAlarm(event);
+            workedSet.add(dedupKey);
             return;
+        }
+    }
+}
+
+function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+
+async function exponentialRetry(task, retries = 5, initialDelay = 1000) {
+    let currentDelay = initialDelay;
+
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await task();
+        } catch (err) {
+            if (i === retries - 1) throw err;
+            console.log(`[ERROR] restart after ${currentDelay}ms...`);
+
+            await delay(currentDelay);
+            currentDelay *= 2;
         }
     }
 }
 
 
 async function main() {
-    console.log("Calendar alarm app started");
+    console.log("[INFO] Calendar alarm app started");
     const missing = requiredEnv.filter((name) => !process.env[name]);
     if(missing.length > 0) {
         throw new Error("Missing env variables: " + missing.join(", "));
     }
-    console.log("Config loaded successfully")
+    console.log("[INFO] Config loaded successfully")
 
     const auth = createAuthClient();
-    console.log('auth client created successfully');
-
+    console.log('[INFO] Auth client created successfully');
 
     const calendar = google.calendar({version: "v3", auth});
 
-    await checkEvents(calendar);
+    exponentialRetry(() => checkEvents(calendar)).catch((e) => {
+        console.error("[ERROR] Failed to check events after multiple retries: ", e.message);
+    });
+
     setInterval(async () => {
         try {
             await checkEvents(calendar);
         } catch (e) {
-            console.error("There was a problem with an error: ", e.message);
+            console.error("[ERROR] There was a problem with an error: ", e.message);
         }
     }, 60_000);
     setInterval(() => {
@@ -117,10 +157,20 @@ async function main() {
     }, 86_400_000);
 }
 
-main().catch((error) => {
-    console.error("Fatal error:", error.message);
-    process.exit(1);
-});
+module.exports = {
+    normalizeEventsStart,
+    isEventInWindow,
+    buildDedupKey,
+    checkEvents,
+};
+
+if (require.main === module) {
+    main().catch((error) => {
+        console.error("[ERROR] Fatal error:", error.message);
+        process.exit(1);
+    });
+}
+
 
 
 

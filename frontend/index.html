@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar Alarm</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>📅 Calendar Alarm</h1>
+            <p class="subtitle">Select events to trigger the alarm</p>
+        </header>
+
+        <main class="main-content">
+            <!-- Filters -->
+            <section class="filters">
+                <div class="filter-group">
+                    <label for="date-filter">Date:</label>
+                    <input type="date" id="date-filter">
+                </div>
+                <div class="filter-group">
+                    <label for="calendar-filter">Calendar:</label>
+                    <select id="calendar-filter">
+                        <option value="">All calendars</option>
+                    </select>
+                </div>
+                <button id="refresh-btn" class="btn btn-primary">🔄 Refresh</button>
+            </section>
+
+            <!-- Status -->
+            <div id="status-message" class="status-message"></div>
+
+            <!-- Events List -->
+            <section class="events-section">
+                <h2>Events</h2>
+                <div id="events-container" class="events-list">
+                    <div class="loading">Loading events...</div>
+                </div>
+            </section>
+
+            <!-- Selected Events -->
+            <section class="selected-section">
+                <h2>Selected events for alarm</h2>
+                <div id="selected-events" class="selected-events-list">
+                    <p class="empty-message">No events selected</p>
+                </div>
+                <div class="actions">
+                    <button id="save-btn" class="btn btn-success" disabled>💾 Save</button>
+                    <button id="clear-btn" class="btn btn-danger" disabled>🗑️ Clear all</button>
+                </div>
+            </section>
+
+            <!-- Sound Settings -->
+            <section class="sound-settings">
+                <h2>Sound Settings</h2>
+                <div class="sound-group">
+                    <label for="sound-select">Select alarm sound:</label>
+                    <select id="sound-select">
+                        <option value="default">Default sound</option>
+                    </select>
+                </div>
+                <div class="sound-group">
+                    <label for="volume-control">Volume:</label>
+                    <div class="volume-container">
+                        <input type="range" id="volume-control" min="0" max="100" value="70">
+                        <span id="volume-value">70%</span>
+                    </div>
+                </div>
+                <button id="test-sound-btn" class="btn btn-secondary">🔊 Test Sound</button>
+            </section>
+
+            <!-- Application Status -->
+            <section class="app-status">
+                <h2>Application Status</h2>
+                <div class="status-info">
+                    <div class="status-item">
+                        <span class="label">Synchronization:</span>
+                        <span id="sync-status" class="status-badge status-idle">⏸️ Inactive</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label">Connection:</span>
+                        <span id="connection-status" class="status-badge status-idle">🔌 Checking...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label">Last update:</span>
+                        <span id="last-update">--:--:--</span>
+                    </div>
+                </div>
+                <button id="start-sync-btn" class="btn btn-primary">▶️ Start synchronization</button>
+                <button id="stop-sync-btn" class="btn btn-warning" disabled>⏹️ Stop synchronization</button>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
