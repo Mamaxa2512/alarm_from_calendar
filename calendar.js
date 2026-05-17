@@ -12,6 +12,16 @@ const requiredEnv = [
 ];
 
 const worked = new Set();
+let cachedEvents = [];
+//mockData
+cachedEvents = [
+    { id: "1", summary: "Daily Standup Mock", start: { dateTime: new Date(Date.now() + 600000).toISOString() } },
+    { id: "2", summary: "Project Review Mock", start: { dateTime: new Date(Date.now() + 3600000).toISOString() } }
+];
+
+function getCachedEvents() {
+    return cachedEvents;
+}
 
 function buildDedupKey(eventId, timestamp) {
     return (eventId || "no_id") + "_" + timestamp;
@@ -162,6 +172,7 @@ module.exports = {
     isEventInWindow,
     buildDedupKey,
     checkEvents,
+    getCachedEvents
 };
 
 if (require.main === module) {

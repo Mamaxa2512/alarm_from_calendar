@@ -2,6 +2,9 @@
 .env
 .env.*
 
+# Project docs (internal)
+PROJECT.md
+
 # Node dependencies
 node_modules/
 
