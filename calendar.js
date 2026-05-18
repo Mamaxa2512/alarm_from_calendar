@@ -1,4 +1,4 @@
-const {google} = require("googleapis");
+const { google } = require("googleapis");
 const player = require("play-sound")();
 const fs = require("fs");
 const path = require("path");
@@ -12,16 +12,16 @@ const requiredEnv = [
 ];
 
 const worked = new Set();
-let cachedEvents = [];
-//mockData
-cachedEvents = [
-    { id: "1", summary: "Daily Standup Mock", start: { dateTime: new Date(Date.now() + 600000).toISOString() } },
-    { id: "2", summary: "Project Review Mock", start: { dateTime: new Date(Date.now() + 3600000).toISOString() } }
-];
+//let cachedEvents = [];
 
-function getCachedEvents() {
-    return cachedEvents;
-}
+let events = [];
+
+//cachedEvents = [
+//    { id: "1", summary: "Daily Standup Mock", start: { dateTime: new Date(Date.now() + 600000).toISOString() } },
+//    { id: "2", summary: "Project Review Mock", start: { dateTime: new Date(Date.now() + 3600000).toISOString() } }
+//];
+
+
 
 function buildDedupKey(eventId, timestamp) {
     return (eventId || "no_id") + "_" + timestamp;
@@ -39,16 +39,16 @@ function createAuthClient() {
     return oauth2Client;
 }
 
-function normalizeEventsStart(event){
+function normalizeEventsStart(event) {
     if (!event) return null;
 
     const raw = event.start?.dateTime || event.start?.date;
 
-    if(!raw) return null;
+    if (!raw) return null;
 
     const date = new Date(raw);
 
-    if( Number.isNaN(date.getTime()) ) return null;
+    if (Number.isNaN(date.getTime())) return null;
 
     return {
         date,
@@ -68,19 +68,19 @@ function playSound() {
         console.warn("[WARN] No such sounds exist");
         return;
     }
-    player.play(soundPath, (err) =>{
+    player.play(soundPath, (err) => {
         if (err) {
             console.error("[ERROR] Cannot play Skillet_Monster: ", err.message);
         }
     });
 }
 
-function alarm(event){
+function alarm(event) {
     console.log(`[INFO] Alarm: ${event.summary}, ${event.start?.dateTime || event.start?.date}, ${event.id}`);
     playSound();
 }
 
-async function checkEvents(calendar, deps = {}){
+async function checkEvents(calendar, deps = {}) {
     const triggerAlarm = deps.alarm || alarm;
     const workedSet = deps.worked || worked;
     const nowValue = deps.now ?? Date.now();
@@ -95,18 +95,18 @@ async function checkEvents(calendar, deps = {}){
             orderBy: "startTime",
         }
     )
-    const events = response.data.items || [];
+    events = response.data.items || [];
 
     console.log("[INFO] Events in checkEvents:", events.length);
 
 
     const now = nowValue;
     const interval = 60_000;
-    for(const event of events){
+    for (const event of events) {
         const normalized = normalizeEventsStart(event);
         const dedupKey = normalized ? buildDedupKey(event.id, normalized.timestamp) : null;
 
-        if(normalized &&
+        if (normalized &&
             isEventInWindow(normalized.timestamp, now, interval) &&
             !workedSet.has(dedupKey)) { // if there are multiple events in the same minute, we will only alarm for the first one
             triggerAlarm(event);
@@ -141,7 +141,7 @@ async function exponentialRetry(task, retries = 5, initialDelay = 1000) {
 async function main() {
     console.log("[INFO] Calendar alarm app started");
     const missing = requiredEnv.filter((name) => !process.env[name]);
-    if(missing.length > 0) {
+    if (missing.length > 0) {
         throw new Error("Missing env variables: " + missing.join(", "));
     }
     console.log("[INFO] Config loaded successfully")
@@ -149,7 +149,7 @@ async function main() {
     const auth = createAuthClient();
     console.log('[INFO] Auth client created successfully');
 
-    const calendar = google.calendar({version: "v3", auth});
+    const calendar = google.calendar({ version: "v3", auth });
 
     exponentialRetry(() => checkEvents(calendar)).catch((e) => {
         console.error("[ERROR] Failed to check events after multiple retries: ", e.message);
@@ -167,12 +167,16 @@ async function main() {
     }, 86_400_000);
 }
 
+function getEvents() {
+    return events;
+}
+
 module.exports = {
     normalizeEventsStart,
     isEventInWindow,
     buildDedupKey,
     checkEvents,
-    getCachedEvents
+    getEvents
 };
 
 if (require.main === module) {
