@@ -1,9 +1,12 @@
-function Filters({ onRefresh }) {
+
+
+
+function Filters({ onRefresh, dateValue, onDateChange, calendarValue, onCalendarChange }) {
   return (
     <section className="filters">
       <div className="filter-group">
         <label htmlFor="date-filter">Date:</label>
-        <input type="date" id="date-filter" />
+        <input type="date" id="date-filter" value={dateValue || ''} onChange={(e) => onDateChange(e.target.value)} />
       </div>
       <div className="filter-group">
         <label htmlFor="calendar-filter">Calendar:</label>

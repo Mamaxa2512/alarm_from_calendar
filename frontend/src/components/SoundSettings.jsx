@@ -4,6 +4,7 @@ function SoundSettings({
   selectedSound,
   onSoundChange,
   onTestSound,
+  availableSounds
 }) {
   return (
     <section className="sound-settings">
@@ -15,8 +16,11 @@ function SoundSettings({
           value={selectedSound}
           onChange={(e) => onSoundChange(e.target.value)}
         >
-          <option value="default">Default sound</option>
-          <option value="Skillet_Monster">Skillet Monster</option>
+          {availableSounds.map((sound) => (
+            <option key={sound.name} value={sound.name}>
+              {sound.name}
+            </option>
+          ))}
         </select>
       </div>
       <div className="sound-group">

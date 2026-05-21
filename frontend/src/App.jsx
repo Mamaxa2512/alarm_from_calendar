@@ -30,6 +30,8 @@ function normalizeEvent(raw, index) {
 }
 
 function App() {
+  const [availableSounds, setAvailableSounds] = useState([]);
+  const [calendarsList, setCalendarsList] = useState([]);
   const [events, setEvents] = useState([]);
   const [selectedEvents, setSelectedEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,8 +60,18 @@ function App() {
       const payload = await response.json();
       const normalized = getApiEvents(payload).map((event, index) => normalizeEvent(event, index));
 
+      const soundResponse = await fetch('/api/sounds');
+      const soundPayload = await soundResponse.json();
+      setAvailableSounds(soundPayload.arr);
+
       setEvents(normalized);
       showMessage('Events loaded successfully', 'success');
+
+      const calendarsResponce = await fetch('/api/calendars');
+      const calendarsPayload = await calendarsResponce.json();
+      setCalendarsList(calendarsPayload.calendars);
+
+
     } catch (error) {
       console.error('Error loading events:', error);
       showMessage('Failed to load events', 'error');
@@ -79,11 +91,21 @@ function App() {
     }
   }, []);
 
-  // Завантажити события
+  // Завантажити події
   useEffect(() => {
     loadEvents();
     checkConnection();
   }, [loadEvents, checkConnection]);
+
+  useEffect(() => {
+    if (syncActive) {
+      const interval = setInterval(() => {
+        loadEvents();
+        checkConnection();
+      }, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [syncActive, loadEvents, checkConnection]);
 
   const toggleEventSelection = (eventId) => {
     setSelectedEvents((prev) =>
@@ -123,15 +145,40 @@ function App() {
   };
 
 
-  const startSync = () => {
-    setSyncActive(true);
-    showMessage('Synchronization started', 'success');
-    setLastUpdate(new Date());
+  const startSync = async () => {
+    try {
+      const response = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: true }),
+      });
+
+      if (!response.ok) throw new Error('Failed to start sync');
+      showMessage('Synchronization started', 'success');
+      setSyncActive(true);
+      setLastUpdate(new Date());
+    } catch (error) {
+      console.error('Error starting sync:', error);
+      showMessage('Failed to start sync', 'error');
+    }
+
+
   };
 
-  const stopSync = () => {
-    setSyncActive(false);
-    showMessage('Synchronization stopped', 'info');
+  const stopSync = async () => {
+    try {
+      const response = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: false }),
+      });
+      if (!response.ok) throw new Error('Failed to stop sync');
+      showMessage('Synchronization stopped', 'success');
+      setSyncActive(false);
+    } catch (error) {
+      console.error('Error stopping sync:', error);
+      showMessage('Failed to stop sync', 'error');
+    }
   };
 
   const testSound = async () => {
@@ -152,6 +199,19 @@ function App() {
 
   const selectedEventsList = events.filter((event) => selectedEvents.includes(event.id));
 
+
+  const filteredEvents = events.filter((event) => {
+    if (!dateFilter) return true;
+    if (!event.start) {
+      return false;
+    }
+    const year = event.start.getFullYear();
+    const month = event.start.getMonth();
+    const day = event.start.getDate();
+    const eventDateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return eventDateString === dateFilter;
+  });
+
   return (
     <div className="container">
       <Header />
@@ -161,10 +221,10 @@ function App() {
           <StatusMessage message={statusMessage.message} type={statusMessage.type} />
         )}
 
-        <Filters onRefresh={loadEvents} />
+        <Filters onRefresh={loadEvents} dateValue={dateFilter} onDateChange={setDateFilter} calendars={calendarsList} calendarValue={calendarFilter} onCalendarChange={setCalendarFilter} />
 
         <EventsList
-          events={events}
+          events={filteredEvents}
           selectedEvents={selectedEvents}
           loading={loading}
           onToggle={toggleEventSelection}
@@ -184,6 +244,7 @@ function App() {
           selectedSound={selectedSound}
           onSoundChange={setSelectedSound}
           onTestSound={testSound}
+          availableSounds={availableSounds}
         />
 
         <AppStatus

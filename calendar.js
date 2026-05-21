@@ -15,6 +15,12 @@ const worked = new Set();
 //let cachedEvents = [];
 
 let events = [];
+let defaultSound = { alarmEvents: [], volume: 70, sound: 'Skillet_Monster.mp3' }
+let flag = false;
+
+function setFlag(param) {
+    flag = param;
+}
 
 //cachedEvents = [
 //    { id: "1", summary: "Daily Standup Mock", start: { dateTime: new Date(Date.now() + 600000).toISOString() } },
@@ -22,6 +28,14 @@ let events = [];
 //];
 
 
+
+async function getCalendarsList() {
+    const auth = createAuthClient();
+    const calendar = google.calendar({ version: "v3", auth });
+    const response = await calendar.calendarList.list();
+
+    return response.data.items;
+}
 
 function buildDedupKey(eventId, timestamp) {
     return (eventId || "no_id") + "_" + timestamp;
@@ -62,8 +76,12 @@ function isEventInWindow(timestamp, now, intervalMs = 60_000) {
     return now <= timestamp && timestamp <= now + intervalMs;
 }
 
-function playSound() {
-    const soundPath = path.join(__dirname, "sounds", "Skillet_Monster.mp3");
+function playSound(event) {
+    if (!defaultSound.alarmEvents.includes(event.id)) {
+        console.log("[INFO] Event not in alarm list");
+        return;
+    }
+    const soundPath = path.join(__dirname, "sounds", defaultSound.sound);
     if (!fs.existsSync(soundPath)) {
         console.warn("[WARN] No such sounds exist");
         return;
@@ -77,10 +95,13 @@ function playSound() {
 
 function alarm(event) {
     console.log(`[INFO] Alarm: ${event.summary}, ${event.start?.dateTime || event.start?.date}, ${event.id}`);
-    playSound();
+    playSound(event);
 }
 
 async function checkEvents(calendar, deps = {}) {
+    if (flag === false) {
+        return;
+    }
     const triggerAlarm = deps.alarm || alarm;
     const workedSet = deps.worked || worked;
     const nowValue = deps.now ?? Date.now();
@@ -138,7 +159,7 @@ async function exponentialRetry(task, retries = 5, initialDelay = 1000) {
 }
 
 
-async function main() {
+async function startPolling() {
     console.log("[INFO] Calendar alarm app started");
     const missing = requiredEnv.filter((name) => !process.env[name]);
     if (missing.length > 0) {
@@ -171,20 +192,23 @@ function getEvents() {
     return events;
 }
 
+function updateSound(newSound) {
+    defaultSound = newSound;
+}
+
 module.exports = {
     normalizeEventsStart,
     isEventInWindow,
     buildDedupKey,
     checkEvents,
-    getEvents
+    getEvents,
+    updateSound,
+    startPolling,
+    setFlag,
+    getCalendarsList
 };
 
-if (require.main === module) {
-    main().catch((error) => {
-        console.error("[ERROR] Fatal error:", error.message);
-        process.exit(1);
-    });
-}
+
 
 
 
