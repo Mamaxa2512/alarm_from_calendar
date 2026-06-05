@@ -102,22 +102,35 @@ async function checkEvents(calendar, deps = {}) {
     if (flag === false) {
         return;
     }
+    const calendars = await getCalendarsList();
+    const calendarsId = [];
+    for (const cal of calendars) {
+        calendarsId.push(cal.id);
+    }
     const triggerAlarm = deps.alarm || alarm;
     const workedSet = deps.worked || worked;
     const nowValue = deps.now ?? Date.now();
 
-    const response = await calendar.events.list(
-        {
-            calendarId: process.env.CALENDAR_ID,
-            timeMin: new Date(nowValue).toISOString(),
-            timeMax: new Date(nowValue + 3_600_000).toISOString(),  // check events for the next hour
-            maxResults: 20,
-            singleEvents: true,
-            orderBy: "startTime",
-        }
-    )
-    events = response.data.items || [];
+    const allEvents = [];
 
+    for (const calId of calendarsId) {
+
+        const buf = await calendar.events.list(
+            {
+                calendarId: calId,
+                timeMin: new Date(nowValue).toISOString(),
+                timeMax: new Date(nowValue + 3_600_000).toISOString(),  // check events for the next hour
+                maxResults: 20,
+                singleEvents: true,
+                orderBy: "startTime",
+            }
+        )
+
+        const al = buf.data.items || [];
+        allEvents.push(al.map((event) => { return { ...event, calendarId: calId } }));
+    }
+
+    events = allEvents.flat();
     console.log("[INFO] Events in checkEvents:", events.length);
 
 

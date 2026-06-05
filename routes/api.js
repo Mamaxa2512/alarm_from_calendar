@@ -40,7 +40,7 @@ router.get('/calendars', async (req, res) => {
         const calendars = await getCalendarsList();
         return res.json({ calendars: calendars });
     } catch (e) {
-        console.error('[ERROR] Failed to fetch calendars: ', e.message);
+        console.error('[ERROR] Failed to fetch calendars: ', e);
         return res.status(500).json({ error: 'Failed to fetch calendars' })
     }
 })

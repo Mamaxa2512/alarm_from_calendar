@@ -26,6 +26,7 @@ function normalizeEvent(raw, index) {
     summary: raw?.summary || 'Untitled event',
     start: isValidDate ? parsedStart : null,
     isAllDay: Boolean(raw?.start?.date && !raw?.start?.dateTime),
+    calendarId: raw?.calendarId
   };
 }
 
@@ -201,6 +202,8 @@ function App() {
 
 
   const filteredEvents = events.filter((event) => {
+    if (!calendarFilter) return true;
+    if (calendarFilter !== event.calendarId) return false;
     if (!dateFilter) return true;
     if (!event.start) {
       return false;
@@ -209,6 +212,7 @@ function App() {
     const month = event.start.getMonth();
     const day = event.start.getDate();
     const eventDateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
     return eventDateString === dateFilter;
   });
 
